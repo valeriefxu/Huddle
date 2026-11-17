@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Huddle Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400..700&display=swap">
+<style>
+/* Layout idea: dark stage, a phone in the middle, a demo-control panel beside it. */
+:root{
+  --ink:#1B1A2E; --ink-2:#2A2945; --ink-3:#3A3960;
+  --paper:#F7F4EE; --card:#FFFDF8; --line:#E3DCCB; --text-2:#4A4A5C; --text-3:#6B6A80;
+  --mint:#3DDC97; --mint-ink:#0B7A4F; --coral:#FF9B80; --busy:#D9D6E8; --dnd:#A8A5C8;
+  --font:'DM Sans',Arial,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:var(--ink);color:var(--paper);font-family:var(--font);-webkit-font-smoothing:antialiased}
+button{font-family:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
+button:focus-visible{outline:3px solid var(--mint);outline-offset:2px}
+
+.stage{display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:48px;padding:32px 20px 56px;max-width:1100px;margin:0 auto}
+.panel{width:100%;max-width:380px;display:flex;flex-direction:column;gap:24px;padding-top:12px}
+.panel h1{font-size:40px;line-height:1.05;margin:0;font-weight:700;text-wrap:balance}
+.panel .lede{margin:0;font-size:18px;line-height:1.5;color:#BDBBD6}
+.panel h2{font-size:14px;letter-spacing:2px;margin:0;color:var(--mint);font-weight:700}
+.demo-list{display:flex;flex-direction:column;gap:10px}
+.demo-btn{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;background:var(--ink-2);border-radius:16px;padding:14px 16px;border:2px solid transparent}
+.demo-btn:hover{border-color:var(--ink-3)}
+.demo-btn b{font-size:16px}
+.demo-btn span{font-size:14px;color:#BDBBD6;line-height:1.35}
+.demo-btn.reset{background:none;border:2px solid var(--ink-3);align-items:center}
+.point{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:15px;color:#BDBBD6;line-height:1.45}
+
+/* phone */
+.phone{width:390px;height:812px;flex:none;border-radius:58px;padding:10px;background:#0C0B18;box-shadow:0 0 0 2px #34335A,0 30px 80px rgba(0,0,0,.5)}
+.screen{position:relative;width:100%;height:100%;border-radius:48px;overflow:hidden;background:var(--paper);color:var(--ink)}
+.sbar{position:absolute;top:0;left:0;right:0;height:50px;display:flex;align-items:center;justify-content:space-between;padding:6px 30px 0;font-size:15px;font-weight:700;z-index:5;pointer-events:none}
+.sbar.light{color:#F7F4EE}
+.homebar{position:absolute;bottom:6px;left:50%;transform:translateX(-50%);width:140px;height:22px;z-index:6;display:flex;align-items:center;justify-content:center}
+.homebar i{display:block;width:128px;height:5px;border-radius:3px;background:var(--ink)}
+.homebar.light i{background:#F7F4EE}
+
+/* home screen */
+.home{position:absolute;inset:0;background:radial-gradient(120% 70% at 50% 0%,#3B3A6B 0%,#1B1A2E 60%);padding:64px 18px 0;color:#F7F4EE}
+.date{margin:0 0 14px 6px;font-size:15px;font-weight:600;color:#D8D6EE}
+.widget{display:block;width:100%;text-align:left;background:rgba(251,249,243,.96);color:var(--ink);border-radius:28px;padding:16px 16px 14px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.w-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.w-top b{font-size:15px}
+.w-top span{font-size:13px;font-weight:700;background:var(--mint);color:var(--ink);border-radius:20px;padding:3px 10px}
+.w-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.w-tile{display:flex;align-items:center;gap:9px;background:#F6F1E4;border:2px solid #EBE3CF;border-radius:22px;padding:8px 10px 8px 8px;min-width:0}
+.w-tile .t{display:flex;flex-direction:column;min-width:0}
+.w-tile b{font-size:14px;line-height:1.15}
+.w-tile small{font-size:12.5px;color:var(--text-2);line-height:1.2}
+.w-foot{margin:10px 0 0;font-size:13px;color:var(--text-2);display:flex;align-items:center;gap:8px;background:#E9F7F0;border-radius:18px;padding:6px 10px}
+.w-foot .av{width:28px;height:28px}
+.w-foot .av svg{width:100%;height:100%;display:block;overflow:visible}
+.mini svg{width:100%;height:100%;display:block;overflow:visible}
+.av.bob svg{animation:bob 1.5s ease-in-out infinite alternate;animation-delay:calc(var(--ph,0s) - var(--o,0s))}
+.eyes{transform-box:view-box;transform-origin:24px 27px;animation:blink 4s infinite;animation-delay:calc(var(--ph,0s) - var(--o,0s))}
+.page{transform-box:view-box;transform-origin:24px 43px;animation:flip 6s ease-in-out infinite;animation-delay:var(--ph,0s)}
+.lift{transform-box:view-box;animation:lift 1.5s ease-in-out infinite alternate;animation-delay:var(--ph,0s)}
+.sweat{animation:sweat 2s ease-in infinite;animation-delay:var(--ph,0s)}
+.steam{animation:steam 3s ease-out infinite;animation-delay:var(--ph,0s)}
+.steam.st2{animation-delay:calc(var(--ph,0s) - 1.5s)}
+.zz{opacity:0;animation:zfloat 3s ease-out infinite;animation-delay:var(--ph,0s)}
+.zz.z2{animation-delay:calc(var(--ph,0s) - 1s)}.zz.z3{animation-delay:calc(var(--ph,0s) - 2s)}
+.td{animation:dots 1.5s ease-in-out infinite;animation-delay:var(--ph,0s)}
+.td.d2{animation-delay:calc(var(--ph,0s) - .5s)}.td.d3{animation-delay:calc(var(--ph,0s) - 1s)}
+.spark{transform-box:fill-box;transform-origin:center;animation:spark 3s ease-in-out infinite;animation-delay:calc(var(--ph,0s) - var(--o,0s))}
+.spark.s2{animation-delay:calc(var(--ph,0s) - var(--o,0s) - 1.5s)}
+@keyframes blink{0%,90%,100%{transform:scaleY(1)}94%{transform:scaleY(.08)}}
+@keyframes flip{0%{transform:scaleX(1);opacity:0}8%{opacity:1}55%{transform:scaleX(1)}75%{transform:scaleX(0)}90%{transform:scaleX(-1);opacity:1}100%{transform:scaleX(-1);opacity:0}}
+@keyframes lift{from{transform:translateY(0)}to{transform:translateY(-5px)}}
+@keyframes sweat{0%{transform:translateY(0);opacity:0}20%{opacity:1}100%{transform:translateY(8px);opacity:0}}
+@keyframes steam{0%{transform:translateY(3px);opacity:0}30%{opacity:.95}100%{transform:translateY(-6px);opacity:0}}
+@keyframes zfloat{0%{transform:translate(0,5px) scale(.7);opacity:0}25%{opacity:1}100%{transform:translate(6px,-9px) scale(1.1);opacity:0}}
+@keyframes dots{0%,100%{opacity:.25}50%{opacity:1}}
+@keyframes spark{0%,100%{transform:scale(.3);opacity:.3}50%{transform:scale(1);opacity:1}}
+.w-top span::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ink);margin-right:6px;vertical-align:1px;animation:dots 1.5s ease-in-out infinite}
+@keyframes bob{from{transform:translateY(1px)}to{transform:translateY(-2.500px)}}
+.av .dot{display:none}
+.icons{display:grid;grid-template-columns:repeat(4,1fr);gap:20px 8px;margin-top:26px}
+.icon{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;color:#D8D6EE}
+.icon i{display:block;width:60px;height:60px;border-radius:15px}
+.dock{position:absolute;left:14px;right:14px;bottom:32px;height:82px;border-radius:30px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:space-around}
+.dock .icon{font-size:0;gap:0}
+.dock .icon i{width:58px;height:58px}
+.appicon{background:var(--mint);position:relative;display:flex!important;align-items:center;justify-content:center}
+.appicon svg{width:34px;height:34px}
+
+/* avatars + dots */
+.av{position:relative;flex:none;width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;color:var(--ink)}
+.av .dot{position:absolute;right:-1px;bottom:-1px;width:14px;height:14px;border-radius:50%;border:2.5px solid var(--card)}
+.w-tile .av{width:46px;height:46px}
+.w-tile .av .dot{width:13px;height:13px;border-width:2.500px;border-color:#F6F1E4}
+
+/* app */
+.app{position:absolute;inset:0;display:flex;flex-direction:column;padding-top:50px}
+.apphead{padding:8px 20px 12px}
+.apphead h3{margin:0;font-size:28px;line-height:1.1;font-weight:700}
+.apphead p{margin:4px 0 0;font-size:15px;color:var(--text-2)}
+.content{flex:1;overflow-y:auto;padding:4px 16px 16px;display:flex;flex-direction:column;gap:14px}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);padding:8px 8px 34px;background:var(--card);border-top:2px solid var(--line)}
+.tab{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:12px;font-weight:600;color:var(--text-3);position:relative;padding:4px 0;border-radius:12px}
+.tab svg{width:26px;height:26px}
+.tab[aria-current="page"]{color:var(--mint-ink)}
+.badge{position:absolute;top:0;left:calc(50% + 6px);min-width:20px;height:20px;border-radius:10px;background:var(--coral);color:var(--ink);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 5px}
+.sec{margin:6px 4px 0;font-size:13px;font-weight:700;letter-spacing:1.5px;color:var(--mint-ink)}
+.sec.coral{color:#B2381C}
+.sec.grey{color:var(--text-3)}
+.best{background:var(--ink);color:var(--paper);border-radius:20px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;width:100%}
+.best small{display:block;font-size:12.5px;letter-spacing:1.5px;color:var(--mint);font-weight:700}
+.best b{font-size:17px;line-height:1.25}
+.best span{font-size:14px;font-weight:700;color:var(--mint);white-space:nowrap}
+.fcard{display:flex;align-items:center;gap:12px;background:var(--card);border:2px solid var(--line);border-radius:20px;padding:12px}
+.fcard .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.fcard b{font-size:17px}
+.fcard .l1{font-size:14px;color:var(--text-2);line-height:1.3}
+.fcard .l2{font-size:13px;color:var(--text-3);line-height:1.3}
+.tag{display:inline-block;font-size:12px;font-weight:700;border-radius:12px;padding:2px 8px;color:var(--ink);margin-top:3px;align-self:flex-start}
+.tag.free{background:var(--mint)} .tag.join{background:var(--coral)} .tag.busy{background:var(--busy)} .tag.dnd{background:var(--dnd)}
+.btn{font-size:14px;font-weight:700;border-radius:20px;padding:9px 16px;background:var(--ink);color:var(--paper);white-space:nowrap}
+.btn.coral{background:var(--coral);color:var(--ink)}
+.btn.mint{background:var(--mint);color:var(--ink)}
+.btn.ghost{background:none;border:2px solid var(--line);color:var(--ink);padding:7px 14px}
+.btn.done{background:#E3F6EC;color:var(--mint-ink);cursor:default}
+.btn.off{background:var(--busy);color:var(--text-2);cursor:default}
+
+/* plan grid */
+.grid{background:var(--card);border:2px solid var(--line);border-radius:20px;padding:10px 8px 8px}
+.g-row{display:grid;grid-template-columns:46px repeat(6,1fr) 34px;gap:4px;align-items:center;margin-bottom:4px}
+.g-row.head{margin-bottom:6px}
+.g-row .hl{font-size:12px;font-weight:700;color:var(--text-3);text-align:right;padding-right:4px}
+.mini{width:32px;height:32px;border-radius:50%;margin:0 auto;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--ink)}
+.cell{height:30px;border-radius:8px}
+.cell.free{background:var(--mint)} .cell.join{background:var(--coral)} .cell.busy{background:#E4E0EF} .cell.past{background:#EFECE4}
+.g-row.sel .cell{box-shadow:0 0 0 3px var(--ink)}
+.g-row.sel .hl{color:var(--ink)}
+.cnt{font-size:13px;font-weight:700;text-align:center;color:var(--text-2)}
+.g-row.past{opacity:.45}
+.rowbtn{display:block;width:100%;text-align:left;border-radius:10px}
+.rowbtn:disabled{cursor:default}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--text-2);margin:6px 4px 0}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:4px;margin-right:5px;vertical-align:-1px}
+.sheet{background:var(--ink);color:var(--paper);border-radius:22px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.sheet h4{margin:0;font-size:18px;line-height:1.25}
+.sheet p{margin:0;font-size:14px;color:#BDBBD6;line-height:1.4}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font-size:14px;font-weight:600;border-radius:18px;padding:7px 14px;background:var(--ink-2);border:2px solid transparent;color:var(--paper)}
+.chip[aria-pressed="true"]{background:var(--mint);color:var(--ink)}
+.paper-chips .chip{background:#EFE9DB;color:var(--ink)}
+.paper-chips .chip[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+
+/* activity */
+.feed{display:flex;flex-direction:column;gap:10px}
+.fi{display:flex;gap:12px;background:var(--card);border:2px solid var(--line);border-radius:20px;padding:12px}
+.fi.unread{border-color:var(--coral)}
+.fi .tx{flex:1;display:flex;flex-direction:column;gap:3px;min-width:0}
+.fi .tt{font-size:15px;line-height:1.35}
+.fi .tm{font-size:12.5px;color:var(--text-3)}
+.fi .acts{display:flex;gap:8px;margin-top:6px}
+.empty{font-size:14px;color:var(--text-3);text-align:center;padding:20px}
+
+/* me */
+.mecard{background:var(--card);border:2px solid var(--line);border-radius:20px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.mecard h4{margin:0;font-size:13px;letter-spacing:1.5px;color:var(--mint-ink)}
+.preview{display:flex;align-items:center;gap:12px;background:var(--ink);color:var(--paper);border-radius:16px;padding:12px}
+.preview .l1{font-size:14px;color:#BDBBD6;line-height:1.3}
+.preview b{font-size:16px}
+.switch-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.switch-row .tx{display:flex;flex-direction:column;gap:1px}
+.switch-row b{font-size:15px}
+.switch-row small{font-size:13px;color:var(--text-2);line-height:1.3}
+.sw{flex:none;width:52px;height:30px;border-radius:15px;background:#CFC8B6;position:relative;transition:background .15s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#FFFDF8;transition:transform .15s}
+.sw[aria-checked="true"]{background:var(--mint-ink)}
+.sw[aria-checked="true"]::after{transform:translateX(22px)}
+.note{margin:0;font-size:13px;color:var(--text-2);line-height:1.4}
+
+/* banner + toast */
+.banner{position:absolute;top:44px;left:10px;right:10px;z-index:20;background:rgba(27,26,46,.97);color:var(--paper);border-radius:22px;padding:12px 14px;display:flex;gap:12px;align-items:center;text-align:left;box-shadow:0 10px 30px rgba(0,0,0,.35);animation:drop .35s ease-out}
+.banner .tx{display:flex;flex-direction:column;gap:1px}
+.banner small{font-size:12px;letter-spacing:1px;color:var(--mint);font-weight:700}
+.banner b{font-size:14.5px;line-height:1.3;font-weight:600}
+@keyframes drop{from{transform:translateY(-90px);opacity:0}to{transform:none;opacity:1}}
+.toast{position:absolute;left:50%;bottom:120px;transform:translateX(-50%);z-index:20;background:var(--ink);color:var(--paper);font-size:14px;font-weight:600;border-radius:22px;padding:10px 18px;white-space:nowrap;animation:fade .25s ease-out}
+@keyframes fade{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
+@media (prefers-reduced-motion:reduce){.av svg,.av svg *,.w-top span::before{animation:none!important}.zz{opacity:1}.banner,.toast{animation:none}.sw,.sw::after{transition:none}}
+
+@media (max-width:470px){
+  .stage{padding:0 0 40px;gap:28px}
+  .phone{width:100%;height:calc(100dvh - 0px);min-height:640px;border-radius:0;padding:0;box-shadow:none}
+  .screen{border-radius:0}
+  .panel{padding:0 16px}
+}
+</style>
+</head>
+<body>
+<main class="stage">
+  <section class="phone" aria-label="Huddle phone prototype">
+    <div class="screen" id="screen"></div>
+  </section>
+
+  <aside class="panel">
+    <div>
+      <h2>CLICKABLE PROTOTYPE</h2>
+      <h1>Huddle</h1>
+    </div>
+    <p class="lede">Know who’s free, where they are, and what you can do together. Start on the home screen, tap the widget, then try the controls below.</p>
+    <div>
+      <h2>SIMULATE A FRIEND</h2>
+      <div class="demo-list" style="margin-top:10px">
+        <button class="demo-btn" data-ev="maya"><b>Maya starts studying</b><span>Sets a Join me status and sends a notification.</span></button>
+        <button class="demo-btn" data-ev="sam"><b>Sam invites you to the gym</b><span>An invite arrives with Join and Pass buttons.</span></button>
+        <button class="demo-btn" data-ev="alex"><b>Alex turns off Do not disturb</b><span>Alex flips to free and the widget updates.</span></button>
+        <button class="demo-btn" data-ev="hour"><b>Move forward one hour</b><span>Statuses and open times roll with the clock.</span></button>
+        <button class="demo-btn reset" data-ev="reset"><b>Reset demo</b></button>
+      </div>
+    </div>
+    <div>
+      <h2>THINGS TO TRY</h2>
+      <ul class="point" style="margin-top:10px">
+        <li>Plan tab: tap a row to see who is open and send an invite.</li>
+        <li>Me tab: set a status, add Join me, or turn on Do not disturb.</li>
+        <li>Me tab: switch calendars on and watch the Plan grid change.</li>
+      </ul>
+    </div>
+  </aside>
+</main>
+
+<script>
+(function(){
+  var DAY_END = 22, START_T = 14 + 40/60;
+  var avc = {you:'#B8E8D3', maya:'#B8E8D3', jordan:'#FFD3C7', sam:'#D6D2F0', priya:'#F5E3A8', alex:'#CFE3F5'};
+  function b(from,to,type,label,join){ return {from:from,to:to,type:type,label:label,join:!!join}; }
+  var friends = [
+    {id:'maya', name:'Maya', blocks:[b(12,14,'busy','In class'), b(16,17,'busy','Orchestra rehearsal')]},
+    {id:'jordan', name:'Jordan', blocks:[b(14,17,'study','Studying at Buttrick',true), b(19,20,'busy','Club meeting')]},
+    {id:'sam', name:'Sam', blocks:[b(12,13,'busy','In class'), b(16,17,'gym','Gym at 4',true)]},
+    {id:'priya', name:'Priya', blocks:[b(13,16,'busy','In lab'), b(19,20,'dinner','Dinner')]},
+    {id:'alex', name:'Alex', blocks:[b(14,16,'dnd','Do not disturb')]}
+  ];
+  var you = {id:'you', name:'You'};
+  var CAL = {
+    google:{name:'Google Calendar', blocks:[b(12,13,'busy','Contracts class'), b(17,18,'busy','Orchestra rehearsal')]},
+    outlook:{name:'Outlook', blocks:[b(15,16,'busy','Internship call')]},
+    apple:{name:'Apple Calendar', blocks:[b(18,19,'busy','Dinner with family')]}
+  };
+  var VERB = {study:'Studying', dinner:'Having dinner', gym:'At the gym', busy:'Busy'};
+  var uid = 0, timers = [];
+  var S;
+
+  function fresh(){
+    return {
+      t:START_T, screen:'home', tab:'now', sel:null, act:'Coffee',
+      feed:[
+        {id:++uid, kind:'status', who:'alex', text:'Alex set Do not disturb until 4:00 PM.', t:14.2, unread:false},
+        {id:++uid, kind:'status', who:'priya', text:'Priya is in lab until 4:00 PM.', t:13.1, unread:false}
+      ],
+      unread:0, sent:{}, banner:null, toast:null,
+      me:{type:'free', place:'Hidden', dur:60, join:false, dnd:false, override:null, dndUntil:0, cal:{google:true, outlook:false, apple:false}},
+      overrides:{}
+    };
+  }
+
+  function clearTimers(){ timers.forEach(clearTimeout); timers = []; }
+  function later(fn, ms){ timers.push(setTimeout(fn, ms)); }
+
+  function fmt(h){
+    var H = Math.floor(h), M = Math.round((h-H)*60);
+    if(M===60){ H++; M=0; }
+    var ap = (H>=12 && H<24) ? 'PM' : 'AM';
+    return (H%12||12) + ':' + (M<10?'0':'') + M + ' ' + ap;
+  }
+  function fmtH(h){ return (h%12||12) + (h>=12?' PM':' AM'); }
+  function fmtShort(h){ return (h%12||12) + (h>=12?'p':'a'); }
+  function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function blocksOf(p){
+    if(p.id!=='you') return p.blocks;
+    var out = [];
+    Object.keys(S.me.cal).forEach(function(k){ if(S.me.cal[k]) out = out.concat(CAL[k].blocks); });
+    return out;
+  }
+  function statusAt(p, t){
+    if(p.id==='you'){
+      if(S.me.dnd && S.me.dndUntil>t) return {type:'dnd', label:'Do not disturb', until:S.me.dndUntil, join:false};
+      if(S.me.override && S.me.override.until>t) return {type:S.me.override.type, label:S.me.override.label, until:S.me.override.until, join:S.me.override.join};
+    } else {
+      var o = S.overrides[p.id];
+      if(o && o.until>t) return {type:o.type, label:o.label, until:o.until, join:o.join};
+    }
+    var bl = blocksOf(p);
+    var cur = bl.filter(function(x){ return t>=x.from && t<x.to; })[0];
+    if(cur) return {type:cur.type, label:cur.label, until:cur.to, join:cur.join};
+    var nxt = bl.filter(function(x){ return x.from>t; }).sort(function(a,c){ return a.from-c.from; })[0];
+    return {type:'free', label:'Free', until:nxt?nxt.from:DAY_END, next:nxt||null, join:false};
+  }
+  function isOpen(s){ return s.type==='free' || s.join; }
+  function tagInfo(s){
+    if(s.type==='dnd') return {cls:'dnd', text:'Do not disturb'};
+    if(s.join) return {cls:'join', text:'Join me'};
+    if(s.type==='free') return {cls:'free', text:'Free'};
+    return {cls:'busy', text:'Busy'};
+  }
+  function dotColor(s){
+    if(s.type==='dnd') return 'var(--dnd)';
+    if(s.join) return 'var(--coral)';
+    if(s.type==='free') return 'var(--mint)';
+    return 'var(--busy)';
+  }
+  function line1(s){
+    if(s.type==='free') return s.until>=DAY_END ? 'Free the rest of the day' : 'Free until ' + fmt(s.until);
+    return s.label + ' until ' + fmt(s.until);
+  }
+  function short(s){
+    if(s.type==='free') return s.until>=DAY_END ? 'Free all day' : 'Free til ' + fmt(s.until).replace(':00','').replace(' ','').toLowerCase();
+    if(s.type==='dnd') return 'Do not disturb';
+    if(s.join) return s.label.split(' at ')[0] + ' · join me';
+    return s.label;
+  }
+  function find(id){ return id==='you' ? you : friends.filter(function(f){ return f.id===id; })[0]; }
+
+  function overrideFor(p){
+    if(p.id==='you'){
+      if(S.me.dnd && S.me.dndUntil>S.t) return {type:'dnd', until:S.me.dndUntil, join:false};
+      return (S.me.override && S.me.override.until>S.t) ? S.me.override : null;
+    }
+    return S.overrides[p.id];
+  }
+  function openAt(p, h){
+    var bl = blocksOf(p), t = h + 0.5;
+    var o = overrideFor(p);
+    if(o && t<o.until && h+1>S.t) return o.type==='free' ? 'free' : (o.join ? 'join' : 'busy');
+    var cur = bl.filter(function(x){ return t>=x.from && t<x.to; })[0];
+    if(!cur) return 'free';
+    return cur.join ? 'join' : 'busy';
+  }
+  function bestWindow(){
+    var best = null, h0 = Math.floor(S.t);
+    for(var h=h0; h<DAY_END-0; h++){
+      if(h+1-S.t < 0.5) continue;
+      var n = 0, who = [];
+      [you].concat(friends).forEach(function(p){ if(openAt(p,h)!=='busy'){ n++; who.push(p.id); } });
+      if(!best || n>best.n){ best = {h:h, n:n, who:who}; }
+    }
+    return best;
+  }
+
+  /* ---------- feed, banner, toast ---------- */
+  function addFeed(item){
+    item.id = ++uid; item.t = S.t; item.unread = true;
+    S.feed.unshift(item); S.unread++;
+  }
+  function banner(who, text){
+    S.banner = {who:who, text:text};
+    later(function(){ S.banner = null; render(); }, 4800);
+  }
+  function toast(text){
+    S.toast = text;
+    later(function(){ S.toast = null; render(); }, 2200);
+  }
+
+  /* ---------- views ---------- */
+  var ICON = {
+    now:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-6 6.5-6s6.500 2.500 6.500 6"/><path d="M16 5.200a3.300 3.300 0 0 1 0 6.200M18 14.300c2.200.8 3.500 2.700 3.500 5.700"/></svg>',
+    plan:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.500" y="4.500" width="17" height="16" rx="3"/><path d="M3.500 10h17M9 4.500v16M15 10v10.500"/></svg>',
+    activity:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 17V11a6 6 0 0 1 12 0v6l1.500 2h-15z"/><path d="M10 21h4"/></svg>',
+    me:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.500-6.500 8-6.500s8 2.500 8 6.500"/></svg>',
+    pin:'<svg viewBox="0 0 24 24" fill="none" stroke="#1B1A2E" stroke-width="2.200" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="3.200"/><circle cx="17" cy="10" r="2.500"/><path d="M3 20c0-3 2.700-5 6-5s6 2 6 5M15.500 15.300c3 0 5.500 1.500 5.500 4.700"/></svg>'
+  };
+  var BODY = {you:'#3DDC97', maya:'#5FD6A3', jordan:'#FF9B80', sam:'#A99BF0', priya:'#F5C84C', alex:'#7DB7F0'};
+  var INK = '#1B1A2E';
+  function ears(id, c){
+    if(id==='maya') return '<ellipse cx="17" cy="11" rx="4.200" ry="10" fill="'+c+'"/><ellipse cx="31" cy="11" rx="4.200" ry="10" fill="'+c+'"/><ellipse cx="17" cy="11" rx="1.800" ry="6.500" fill="#FFB8C6"/><ellipse cx="31" cy="11" rx="1.800" ry="6.500" fill="#FFB8C6"/>';
+    if(id==='jordan') return '<polygon points="10,20 12,5 23,14" fill="'+c+'"/><polygon points="38,20 36,5 25,14" fill="'+c+'"/><polygon points="13,16 14,9 19,14" fill="#FFB8C6"/><polygon points="35,16 34,9 29,14" fill="#FFB8C6"/>';
+    if(id==='sam') return '<circle cx="12" cy="15" r="5.500" fill="'+c+'"/><circle cx="36" cy="15" r="5.500" fill="'+c+'"/><circle cx="12" cy="15" r="2.500" fill="#D9D3FA"/><circle cx="36" cy="15" r="2.500" fill="#D9D3FA"/>';
+    if(id==='priya') return '<path d="M24 14 Q22 6 18 5 M24 14 Q24 5 24 3 M24 14 Q26 6 30 5" stroke="'+c+'" stroke-width="3.200" stroke-linecap="round" fill="none"/>';
+    if(id==='alex') return '<path d="M24 14 L24 7" stroke="'+c+'" stroke-width="2.600" stroke-linecap="round"/><circle cx="24" cy="6" r="3.200" fill="#FFD84D"/>';
+    return '<path d="M24 14 Q24 8 24 6" stroke="#0B7A4F" stroke-width="2.600" stroke-linecap="round" fill="none"/><ellipse cx="19" cy="7" rx="5" ry="2.800" fill="#0B7A4F" transform="rotate(-25 19 7)"/><ellipse cx="29" cy="7" rx="5" ry="2.800" fill="#0B7A4F" transform="rotate(25 29 7)"/>';
+  }
+  function face(mood){
+    var eyes = '<g class="eyes"><circle cx="18" cy="27" r="2.400" fill="'+INK+'"/><circle cx="30" cy="27" r="2.400" fill="'+INK+'"/></g>';
+    var blush = '<ellipse cx="12.500" cy="32" rx="3" ry="2" fill="#FF8FA8" opacity=".55"/><ellipse cx="35.500" cy="32" rx="3" ry="2" fill="#FF8FA8" opacity=".55"/>';
+    var smile = '<path d="M20 32.500 Q24 37.500 28 32.500" stroke="'+INK+'" stroke-width="2.200" stroke-linecap="round" fill="none"/>';
+    if(mood==='study') return '<circle cx="18" cy="27" r="5" fill="#fff" fill-opacity=".5" stroke="'+INK+'" stroke-width="1.800"/><circle cx="30" cy="27" r="5" fill="#fff" fill-opacity=".5" stroke="'+INK+'" stroke-width="1.800"/><path d="M23 27 h2" stroke="'+INK+'" stroke-width="1.800"/>'+eyes+'<path d="M21 34 Q24 35.500 27 34" stroke="'+INK+'" stroke-width="2" stroke-linecap="round" fill="none"/>'+blush;
+    if(mood==='gym') return '<path d="M9.500 21.500 Q24 16.500 38.500 21.500" stroke="#FF5C7A" stroke-width="3.400" stroke-linecap="round" fill="none"/>'+eyes+'<path d="M19 32 Q24 40 29 32 Z" fill="'+INK+'"/>'+blush;
+    if(mood==='dinner') return eyes+'<ellipse cx="24" cy="34" rx="3" ry="3.400" fill="'+INK+'"/><ellipse cx="24" cy="35.500" rx="1.600" ry="1.400" fill="#FF8FA8"/>'+blush;
+    if(mood==='dnd') return '<path d="M15 27.500 Q18 24.500 21 27.500 M27 27.500 Q30 24.500 33 27.500" stroke="'+INK+'" stroke-width="2.200" stroke-linecap="round" fill="none"/><path d="M22 34 Q24 35.500 26 34" stroke="'+INK+'" stroke-width="2" stroke-linecap="round" fill="none"/>'+blush;
+    if(mood==='busy') return eyes+'<path d="M21 34 h6" stroke="'+INK+'" stroke-width="2.200" stroke-linecap="round"/>'+blush;
+    return eyes+smile+blush;
+  }
+  var OFF = {you:1.9, maya:0, jordan:1.3, sam:2.1, priya:0.7, alex:3.2};
+  function props(mood){
+    var line = '<path d="M12 42 Q16.500 40.500 21 42 M12 45 Q16.500 43.500 21 45" stroke="#B9B5D6" stroke-width="1" fill="none"/>';
+    var lineR = '<path d="M27 42 Q31.500 40.500 36 42 M27 45 Q31.500 43.500 36 45" stroke="#B9B5D6" stroke-width="1" fill="none"/>';
+    var pageR = '<path d="M24 39 Q31.500 36 39 39 L39 48 Q31.500 45 24 48Z" fill="#fff" stroke="'+INK+'" stroke-width="1.500" stroke-linejoin="round"/>';
+    var star = function(x,y,c,cls){ return '<path class="spark '+cls+'" d="M'+x+' '+(y-4)+' Q'+x+' '+y+' '+(x+4)+' '+y+' Q'+x+' '+y+' '+x+' '+(y+4)+' Q'+x+' '+y+' '+(x-4)+' '+y+' Q'+x+' '+y+' '+x+' '+(y-4)+'Z" fill="'+c+'"/>'; };
+    if(mood==='study') return '<path d="M9 39 Q16.500 36 24 39 L24 48 Q16.500 45 9 48Z" fill="#fff" stroke="'+INK+'" stroke-width="1.500" stroke-linejoin="round"/>'+line+pageR+lineR+'<g class="page">'+pageR+lineR+'</g>'+star(41,9,'#FFD84D','s1')+star(6,16,'#FFD84D','s2');
+    if(mood==='gym') return '<g class="lift"><path d="M9 43 H39" stroke="'+INK+'" stroke-width="2.600" stroke-linecap="round"/><rect x="5" y="37" width="5" height="12" rx="2" fill="#FF5C7A" stroke="'+INK+'" stroke-width="1.200"/><rect x="38" y="37" width="5" height="12" rx="2" fill="#FF5C7A" stroke="'+INK+'" stroke-width="1.200"/></g><path class="sweat" d="M40 14 Q37.500 18 40 20 Q42.500 18 40 14Z" fill="#7DD3FC"/>';
+    if(mood==='dinner') return '<path class="steam st1" d="M16 38 Q13.500 35 16 32 Q18.500 29 16 26" stroke="#B9B5D6" stroke-width="1.800" stroke-linecap="round" fill="none"/><path class="steam st2" d="M32 38 Q29.500 35 32 32 Q34.500 29 32 26" stroke="#B9B5D6" stroke-width="1.800" stroke-linecap="round" fill="none"/><path d="M11 40 H37 Q37 49 24 49 Q11 49 11 40Z" fill="#fff" stroke="'+INK+'" stroke-width="1.500" stroke-linejoin="round"/><path d="M15 42.500 Q24 45 33 42.500" stroke="#FFB86B" stroke-width="2" stroke-linecap="round" fill="none"/>';
+    if(mood==='dnd') return '<path class="zz z1" d="M33 18 h5 l-5 5.500 h5" stroke="'+INK+'" stroke-width="1.800" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path class="zz z2" d="M33 18 h5 l-5 5.500 h5" stroke="'+INK+'" stroke-width="1.800" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path class="zz z3" d="M33 18 h5 l-5 5.500 h5" stroke="'+INK+'" stroke-width="1.800" stroke-linecap="round" stroke-linejoin="round" fill="none"/>';
+    if(mood==='busy') return '<circle class="td d1" cx="34" cy="9" r="2" fill="#8E8AA8"/><circle class="td d2" cx="39" cy="9" r="2" fill="#8E8AA8"/><circle class="td d3" cx="44" cy="9" r="2" fill="#8E8AA8"/>';
+    return star(41,9,'#FFD84D','s1')+star(6,14,'#FF8FA8','s2');
+  }
+  function char(p, mood){
+    var c = BODY[p.id];
+    return '<svg viewBox="0 0 48 48" aria-hidden="true" style="--o:'+OFF[p.id]+'s">'+ears(p.id,c)+'<ellipse cx="24" cy="30" rx="16.500" ry="15" fill="'+c+'"/>'+face(mood||'free')+props(mood||'free')+'</svg>';
+  }
+  function avatar(p, s, small){
+    var mood = s ? s.type : 'free';
+    var bob = (s && isOpen(s)) ? ' bob' : '';
+    return '<div class="av'+bob+'" style="background:'+avc[p.id]+'">'+char(p,mood)+(s?'<span class="dot" style="background:'+dotColor(s)+'"></span>':'')+'</div>';
+  }
+
+  function homeView(){
+    var rows = friends.map(function(f){ return {f:f, s:statusAt(f,S.t)}; });
+    var rank = function(x){ return x.s.type==='free' ? 0 : (x.s.join ? 1 : (x.s.type==='dnd' ? 3 : 2)); };
+    rows.sort(function(a,c){ return rank(a)-rank(c); });
+    var open = rows.filter(function(x){ return isOpen(x.s); }).length;
+    var tiles = rows.slice(0,4).map(function(x){
+      return '<div class="w-tile">'+avatar(x.f, x.s)+'<div class="t"><b>'+x.f.name+'</b><small>'+esc(short(x.s))+'</small></div></div>';
+    }).join('');
+    var me = statusAt(you,S.t);
+    var apps = [['#FF8A80','Messages'],['#8EC5FF','Calendar'],['#F5E3A8','Notes'],['#B8A6FF','Music'],['#7FE3C0','Maps'],['#FFB86B','Photos'],['#9AA7C7','Settings'],['#F28BB5','Camera']];
+    var icons = apps.map(function(a){ return '<div class="icon"><i style="background:'+a[0]+'"></i>'+a[1]+'</div>'; }).join('');
+    return '<div class="home">'
+      + '<p class="date">Sunday, Nov 15</p>'
+      + '<button class="widget" data-act="open" aria-label="Open Huddle. '+open+' friends open now.">'
+      +   '<div class="w-top"><b>Huddle</b><span>'+open+' open now</span></div>'
+      +   '<div class="w-grid">'+tiles+'</div>'
+      +   '<div class="w-foot">'+avatar(you,me)+'<span><b>You</b> · '+esc(short(me))+'</span></div>'
+      + '</button>'
+      + '<div class="icons">'+icons+'</div>'
+      + '<div class="dock">'
+      +   '<button class="icon" data-act="open" aria-label="Open Huddle"><i class="appicon">'+ICON.pin+'</i>Huddle</button>'
+      +   '<div class="icon"><i style="background:#8EC5FF"></i></div><div class="icon"><i style="background:#FF8A80"></i></div><div class="icon"><i style="background:#F5E3A8"></i></div>'
+      + '</div></div>';
+  }
+
+  function friendCard(f, s){
+    var tg = tagInfo(s), l1 = line1(s), l2 = '', action = '';
+    if(s.type==='free' && s.next){ l2 = 'Next: ' + s.next.label + ' at ' + fmt(s.next.from) + (s.next.join ? ' · join me?' : ''); if(s.next.join) tg = {cls:'join', text:'Join me later'}; }
+    if(s.type==='free'){
+      var k = 'ping-'+f.id;
+      action = S.sent[k] ? '<span class="btn done">Pinged</span>' : '<button class="btn mint" data-act="ping" data-id="'+f.id+'">Ping</button>';
+    } else if(s.join){
+      var k2 = 'join-'+f.id;
+      action = S.sent[k2] ? '<span class="btn done">On my way</span>' : '<button class="btn coral" data-act="join" data-id="'+f.id+'">Join</button>';
+    } else {
+      action = '<span class="btn off">Not now</span>';
+    }
+    return '<div class="fcard">'+avatar(f,s)+'<div class="tx"><b>'+f.name+'</b><span class="l1">'+esc(l1)+'</span>'+(l2?'<span class="l2">'+esc(l2)+'</span>':'')+'<span class="tag '+tg.cls+'">'+tg.text+'</span></div>'+action+'</div>';
+  }
+
+  function nowView(){
+    var st = friends.map(function(f){ return {f:f, s:statusAt(f,S.t)}; });
+    var free = st.filter(function(x){ return x.s.type==='free'; });
+    var doing = st.filter(function(x){ return x.s.type!=='free' && x.s.type!=='dnd' && x.s.join; });
+    var rest = st.filter(function(x){ return free.indexOf(x)<0 && doing.indexOf(x)<0; });
+    var bw = bestWindow();
+    var h = '';
+    if(bw){
+      var names = bw.who.filter(function(i){ return i!=='you'; }).length;
+      h += '<button class="best" data-act="tab" data-tab="plan"><div><small>BEST WINDOW TODAY</small><b>'+fmtH(bw.h)+' to '+fmtH(bw.h+1)+' · '+(bw.n===6?'everyone is open':bw.n+' of 6 open')+'</b></div><span>Plan it</span></button>';
+    }
+    h += '<p class="sec">FREE NOW · '+free.length+'</p>' + (free.length? free.map(function(x){ return friendCard(x.f,x.s); }).join('') : '<p class="empty">Nobody is free right now.</p>');
+    h += '<p class="sec coral">DOING SOMETHING, WANT COMPANY · '+doing.length+'</p>' + (doing.length? doing.map(function(x){ return friendCard(x.f,x.s); }).join('') : '<p class="empty">No join-me invites right now.</p>');
+    h += '<p class="sec grey">BUSY OR DO NOT DISTURB · '+rest.length+'</p>' + rest.map(function(x){ return friendCard(x.f,x.s); }).join('');
+    return h;
+  }
+
+  function planView(){
+    var people = [you].concat(friends), hours = [], h0 = 12;
+    for(var h=h0; h<DAY_END; h++) hours.push(h);
+    var out = '<div class="grid"><div class="g-row head"><span></span>'
+      + people.map(function(p){ return '<div class="mini" style="background:'+avc[p.id]+'" title="'+p.name+'">'+char(p,'free')+'</div>'; }).join('')
+      + '<span class="cnt">Open</span></div>';
+    hours.forEach(function(h){
+      var past = (h+1) <= S.t;
+      var cells = people.map(function(p){ return '<div class="cell '+(past?'past':openAt(p,h))+'"></div>'; }).join('');
+      var n = people.filter(function(p){ return openAt(p,h)!=='busy'; }).length;
+      var cls = 'g-row' + (past?' past':'') + (S.sel===h?' sel':'');
+      out += '<button class="rowbtn" data-act="selhour" data-h="'+h+'" '+(past?'disabled':'')+' aria-label="'+fmtH(h)+', '+n+' of 6 open"><div class="'+cls+'"><span class="hl">'+fmtShort(h)+'</span>'+cells+'<span class="cnt">'+(past?'':n)+'</span></div></button>';
+    });
+    out += '</div>';
+    out += '<div class="legend"><span><i style="background:var(--mint)"></i>Free</span><span><i style="background:var(--coral)"></i>Join me</span><span><i style="background:#E4E0EF"></i>Busy</span></div>';
+    if(S.sel!==null){
+      var h1 = S.sel, inv = friends.filter(function(f){ return openAt(f,h1)!=='busy'; });
+      var youOpen = openAt(you,h1)!=='busy';
+      out += '<div class="sheet"><h4>'+fmtH(h1)+' to '+fmtH(h1+1)+'</h4>'
+        + '<p>'+(inv.length? inv.map(function(f){ return f.name; }).join(', ')+' '+(inv.length===1?'is':'are')+' open.' : 'Nobody else is open then.') + (youOpen?'':' Your calendar shows you busy at this time.')+'</p>'
+        + '<div class="chips">'+['Coffee','Study','Gym','Dinner'].map(function(a){ return '<button class="chip" data-act="activity" data-v="'+a+'" aria-pressed="'+(S.act===a)+'">'+a+'</button>'; }).join('')+'</div>'
+        + (inv.length? '<button class="btn mint" data-act="send">Invite '+inv.length+' '+(inv.length===1?'friend':'friends')+'</button>' : '')
+        + '</div>';
+    } else {
+      out += '<p class="note" style="margin:2px 4px">Tap an hour to see who is open and send an invite. Calendars share free or busy only.</p>';
+    }
+    return out;
+  }
+
+  function activityView(){
+    if(!S.feed.length) return '<p class="empty">Nothing yet.</p>';
+    return '<div class="feed">' + S.feed.map(function(it){
+      var p = find(it.who) || you;
+      var acts = '';
+      if(it.kind==='invite' && !it.resolved){
+        acts = '<div class="acts"><button class="btn coral" data-act="accept" data-fid="'+it.id+'">Join</button><button class="btn ghost" data-act="decline" data-fid="'+it.id+'">Pass</button></div>';
+      }
+      var text = it.text + (it.resolved ? ' ' + it.resolved : '');
+      return '<div class="fi'+(it.unread?' unread':'')+'">'+avatar(p)+'<div class="tx"><span class="tt">'+esc(text)+'</span><span class="tm">'+fmt(it.t)+'</span>'+acts+'</div></div>';
+    }).join('') + '</div>';
+  }
+
+  function meView(){
+    var s = statusAt(you,S.t), tg = tagInfo(s), m = S.me;
+    var types = [['free','Free'],['study','Studying'],['dinner','Dinner'],['gym','Gym'],['busy','Busy']];
+    var places = ['Hidden','Buttrick','Library','Dining hall','Dorm'];
+    var durs = [[30,'30 min'],[60,'1 hr'],[120,'2 hr']];
+    var chip = function(act, v, label, on){ return '<button class="chip" data-act="'+act+'" data-v="'+v+'" aria-pressed="'+on+'">'+label+'</button>'; };
+    var counts = {google:CAL.google.blocks.length, outlook:CAL.outlook.blocks.length, apple:CAL.apple.blocks.length};
+    var o = '';
+    o += '<div class="mecard"><h4>WHAT FRIENDS SEE</h4><div class="preview">'+avatar(you,s)+'<div><b>'+esc(short(s))+'</b><div class="l1">'+esc(line1(s))+'</div><span class="tag '+tg.cls+'">'+tg.text+'</span></div></div></div>';
+    o += '<div class="mecard paper-chips"><h4>SET STATUS</h4><div class="chips">'+types.map(function(t){ return chip('mtype',t[0],t[1], m.type===t[0]); }).join('')+'</div>'
+      + '<h4 style="margin-top:6px">WHERE</h4><div class="chips">'+places.map(function(p){ return chip('mplace',p,p,m.place===p); }).join('')+'</div>'
+      + '<h4 style="margin-top:6px">FOR</h4><div class="chips">'+durs.map(function(d){ return chip('mdur',d[0],d[1],m.dur===d[0]); }).join('')+'</div></div>';
+    o += '<div class="mecard">'
+      + '<div class="switch-row"><div class="tx"><b>Join me tag</b><small>Let friends come along to what you are doing.</small></div><button class="sw" role="switch" aria-label="Join me tag" aria-checked="'+m.join+'" data-act="mjoin"></button></div>'
+      + '<div class="switch-row"><div class="tx"><b>Do not disturb</b><small>Friends see you are heads down. No pings.</small></div><button class="sw" role="switch" aria-label="Do not disturb" aria-checked="'+m.dnd+'" data-act="mdnd"></button></div></div>';
+    o += '<div class="mecard"><h4>CALENDARS</h4>'
+      + ['google','outlook','apple'].map(function(k){
+          return '<div class="switch-row"><div class="tx"><b>'+CAL[k].name+'</b><small>'+(m.cal[k] ? counts[k]+' event'+(counts[k]>1?'s':'')+' today · free or busy only' : 'Not connected')+'</small></div><button class="sw" role="switch" aria-label="'+CAL[k].name+'" aria-checked="'+m.cal[k]+'" data-act="cal" data-v="'+k+'"></button></div>';
+        }).join('')
+      + '<p class="note">Friends never see event titles or attendees.</p></div>';
+    return o;
+  }
+
+  function appView(){
+    var titles = {now:['Today','Who’s around right now'], plan:['Plan','When everyone is open'], activity:['Activity','Updates and invites'], me:['You','Status, tags and calendars']};
+    var t = titles[S.tab];
+    var body = S.tab==='now' ? nowView() : S.tab==='plan' ? planView() : S.tab==='activity' ? activityView() : meView();
+    var tabs = [['now','Now'],['plan','Plan'],['activity','Activity'],['me','Me']].map(function(x){
+      return '<button class="tab" data-act="tab" data-tab="'+x[0]+'" '+(S.tab===x[0]?'aria-current="page"':'')+'>'+ICON[x[0]]+x[1]+(x[0]==='activity' && S.unread? '<span class="badge">'+S.unread+'</span>':'')+'</button>';
+    }).join('');
+    return '<div class="app"><div class="apphead"><h3>'+t[0]+'</h3><p>'+t[1]+'</p></div><div class="content" id="content">'+body+'</div><nav class="tabs" aria-label="Sections">'+tabs+'</nav></div>';
+  }
+
+  function render(){
+    var scr = document.getElementById('screen');
+    var old = document.getElementById('content');
+    var top = old ? old.scrollTop : 0, keyTab = S.tab;
+    var isHome = S.screen==='home';
+    var html = (isHome ? homeView() : appView())
+      + '<div class="sbar'+(isHome?' light':'')+'"><span>'+fmt(S.t).replace(/ (AM|PM)/,'')+'</span><span>5G</span></div>'
+      + '<button class="homebar'+(isHome?' light':'')+'" data-act="home" aria-label="Go to home screen"><i></i></button>';
+    if(S.banner){
+      var bp = find(S.banner.who) || you;
+      html += '<button class="banner" data-act="banner" aria-label="Open notification">'+avatar(bp)+'<span class="tx"><small>WHENABOUTS · NOW</small><b>'+esc(S.banner.text)+'</b></span></button>';
+    }
+    if(S.toast) html += '<div class="toast" role="status">'+esc(S.toast)+'</div>';
+    scr.style.setProperty('--ph', (-(Date.now()/1000%12)).toFixed(3)+'s');
+    scr.innerHTML = html;
+    var nc = document.getElementById('content');
+    if(nc && old && S.lastTab===keyTab) nc.scrollTop = top;
+    if(nc && S.scrollEnd){ nc.scrollTop = nc.scrollHeight; S.scrollEnd = false; }
+    S.lastTab = keyTab;
+  }
+
+  /* ---------- actions ---------- */
+  function applyMe(){
+    var m = S.me;
+    if(m.type==='free'){ m.override = null; return; }
+    var label = VERB[m.type] + (m.place!=='Hidden' ? ' at ' + m.place : '');
+    m.override = {type:m.type, label:label, until:S.t + m.dur/60, join:m.join};
+  }
+  function reply(f, text, delay){
+    later(function(){
+      addFeed({kind:'reply', who:f.id, text:text});
+      banner(f.id, text);
+      render();
+    }, delay);
+  }
+
+  var actions = {
+    open:function(){ S.screen='app'; },
+    home:function(){ S.screen='home'; },
+    banner:function(){ S.screen='app'; S.tab='activity'; S.unread=0; S.feed.forEach(function(i){ i.unread=false; }); S.banner=null; },
+    tab:function(el){
+      S.screen='app'; S.tab=el.dataset.tab;
+      if(S.tab==='activity'){ S.unread=0; setTimeout(function(){ S.feed.forEach(function(i){ i.unread=false; }); }, 0); }
+    },
+    ping:function(el){
+      var f = find(el.dataset.id); S.sent['ping-'+f.id] = true;
+      addFeed({kind:'sent', who:'you', text:'You pinged '+f.name+': free to hang out?'}); S.unread = Math.max(0,S.unread-1); S.feed[0].unread=false;
+      toast(f.name+' was pinged');
+      reply(f, f.name+' is in. 15 minutes?', 1700);
+    },
+    join:function(el){
+      var f = find(el.dataset.id); S.sent['join-'+f.id] = true;
+      var s = statusAt(f,S.t);
+      addFeed({kind:'sent', who:'you', text:'You asked to join '+f.name+' ('+s.label.toLowerCase()+').'}); S.unread = Math.max(0,S.unread-1); S.feed[0].unread=false;
+      toast(f.name+' knows you’re coming');
+      reply(f, f.name+': saved you a spot.', 1700);
+    },
+    accept:function(el){
+      var it = S.feed.filter(function(i){ return String(i.id)===el.dataset.fid; })[0];
+      it.resolved = 'You’re going.'; toast('Sam was notified');
+      reply(find('sam'), 'Sam: see you at the gym.', 1500);
+    },
+    decline:function(el){
+      var it = S.feed.filter(function(i){ return String(i.id)===el.dataset.fid; })[0];
+      it.resolved = 'You passed.'; toast('Sam was told you can’t make it');
+    },
+    selhour:function(el){ var h=+el.dataset.h; S.sel = (S.sel===h) ? null : h; S.scrollEnd = S.sel!==null; },
+    activity:function(el){ S.act = el.dataset.v; },
+    send:function(){
+      var h = S.sel, inv = friends.filter(function(f){ return openAt(f,h)!=='busy'; });
+      var names = inv.map(function(f){ return f.name; }).join(', ');
+      addFeed({kind:'sent', who:'you', text:'You invited '+names+' for '+S.act.toLowerCase()+' at '+fmt(h)+'.'}); S.unread = Math.max(0,S.unread-1); S.feed[0].unread=false;
+      toast('Invite sent to '+inv.length);
+      inv.slice(0,2).forEach(function(f,i){ reply(f, f.name+' is in for '+S.act.toLowerCase()+' at '+fmt(h)+'.', 1400+i*1500); });
+      S.sel = null;
+    },
+    mtype:function(el){ S.me.type = el.dataset.v; applyMe(); },
+    mplace:function(el){ S.me.place = el.dataset.v; applyMe(); },
+    mdur:function(el){ S.me.dur = +el.dataset.v; applyMe(); if(S.me.dnd) S.me.dndUntil = S.t + S.me.dur/60; },
+    mjoin:function(){ S.me.join = !S.me.join; applyMe(); },
+    mdnd:function(){ S.me.dnd = !S.me.dnd; S.me.dndUntil = S.me.dnd ? S.t + S.me.dur/60 : 0; },
+    cal:function(el){ var k = el.dataset.v; S.me.cal[k] = !S.me.cal[k]; toast(S.me.cal[k] ? CAL[k].name+' connected' : CAL[k].name+' disconnected'); }
+  };
+
+  var events = {
+    maya:function(){
+      S.overrides.maya = {type:'study', label:'Studying at Buttrick', until:S.t+2, join:true};
+      addFeed({kind:'status', who:'maya', text:'Maya is studying at Buttrick. Join her?'});
+      banner('maya', 'Maya is studying at Buttrick. Join her?');
+    },
+    sam:function(){
+      addFeed({kind:'invite', who:'sam', text:'Sam: Gym at 4:00 PM, join me?'});
+      banner('sam', 'Sam: Gym at 4:00 PM, join me?');
+    },
+    alex:function(){
+      S.overrides.alex = {type:'free', label:'Free', until:16, join:false};
+      delete S.sent['ping-alex'];
+      addFeed({kind:'status', who:'alex', text:'Alex turned off Do not disturb and is free.'});
+      banner('alex', 'Alex is free now.');
+    },
+    hour:function(){
+      S.t += 1;
+      if(S.t>=DAY_END-0.5) S.t = START_T;
+      toast('It is now '+fmt(S.t));
+      S.sel = null;
+    },
+    reset:function(){ clearTimers(); S = fresh(); S.lastTab = null; }
+  };
+
+  document.getElementById('screen').addEventListener('click', function(e){
+    var el = e.target.closest('[data-act]');
+    if(!el || el.disabled) return;
+    var fn = actions[el.dataset.act];
+    if(fn){ fn(el); render(); }
+  });
+  document.querySelector('.panel').addEventListener('click', function(e){
+    var el = e.target.closest('[data-ev]');
+    if(!el) return;
+    events[el.dataset.ev]();
+    render();
+  });
+
+  S = fresh();
+  render();
+})();
+</script>
+</body>
+</html>
